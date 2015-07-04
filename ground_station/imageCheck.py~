@@ -21,7 +21,7 @@ YELLOW = (125,255,0)
 PURPLE = (0,255,255)
 
 # Set the height and width of the screen
-size = [1000, 600]
+size = [1180, 410]
 screen = pygame.display.set_mode(size)
 
 clock = pygame.time.Clock()
@@ -83,12 +83,6 @@ while not done:
 
 	newArrow = rot_center(arrow, arrowangle)
 	screen.blit(map_img,(0,0)) #Draw map
-
-	#Reference location drawings
-	#pygame.draw.circle(screen, BLUE, [imagex1, imagey1], 10)
-	#pygame.draw.circle(screen, WHITE, [imagex2, imagey2], 10)
-	#pygame.draw.circle(screen, BLUE, [imagex3, imagey3], 10)
-	#pygame.draw.circle(screen, WHITE, [imagex4, imagey4], 10)
 
 	#GPS Location drawing
 	screen.blit(newArrow,(int(x-7),int(y-4))) #Draw arrow
