@@ -240,7 +240,7 @@ def plot_acc():
 
 def draw_circle():
 	pygame.draw.circle(screen, (0,0,0), (250,250), 125)
-	pygame.display.update()    
+pygame.display.update()    
 
 def ser_test_write():
     global ser, ser_connected
