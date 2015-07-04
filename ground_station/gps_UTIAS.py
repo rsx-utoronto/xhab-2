@@ -31,7 +31,7 @@ def readgps():
     #Read the GPG LINE using the NMEA standard
     while True:
         line = ser_gps.readline()
-        if "GPGGA" in line:
+        if "GPGGA" in line and "," not in line[18:27] and "," not in line[30:40]:
             latitude = line[18:27] #Yes it is positional info for lattitude 3000
             longitude = line[30:40] #do it again 11100
 
@@ -40,6 +40,10 @@ def readgps():
 done = False
 
 # INITIAL PARAMETERS
+#SCALE FOR MAP
+x_factor = 0.8
+y_factor = 0.4
+
 #Reference NMEA GPS Coordinates (test location)
 ref_NMEAlon1 = 7927.967
 ref_NMEAlat1 = 4346.929
@@ -54,17 +58,17 @@ ref_NMEAlon4 = 7928.015
 ref_NMEAlat4 = 4346.977
 
 #Reference Image Coordinates (test location)
-ref_x1 = 890
-ref_y1 = 489
+ref_x1 = int(890*x_factor)
+ref_y1 = int(489*y_factor)
 
-ref_x2 = 494
-ref_y2 = 535
+ref_x2 = int(494*x_factor)
+ref_y2 = int(535*y_factor)
 
-ref_x3 = 128
-ref_y3 = 12
+ref_x3 = int(128*x_factor)
+ref_y3 = int(12*y_factor)
 
-ref_x4 = 574
-ref_y4 = 70
+ref_x4 = int(574*x_factor)
+ref_y4 = int(70*y_factor)
 
 #Reference decimal GPS Coordinates
 ref_declon1, ref_declat1 = decimal_gps(ref_NMEAlon1,ref_NMEAlat1)
@@ -129,7 +133,7 @@ YELLOW = (125,255,0)
 PURPLE = (0,255,255)
 
 # Set the height and width of the screen
-size = [1000, 600]
+size = [int(1000*x_factor), int(600*y_factor)]
 screen = pygame.display.set_mode(size)
 
 clock = pygame.time.Clock()
@@ -144,7 +148,7 @@ map_img = pygame.image.load('UTIAS.PNG')
 w,h = map_img.get_size()
 x_scale = 0.9
 y_scale = 0.9
-map_img = pygame.transform.scale(map_img, (int(w*x_scale),int(h*y_scale)))
+map_img = pygame.transform.scale(map_img, (int(w*x_scale*x_factor),int(h*y_scale*y_factor)))
 
 #Arrow represents the GPS location
 arrow = pygame.image.load('arrow.png')
@@ -152,8 +156,9 @@ arrow = pygame.transform.scale(arrow, (15,15))
 
 #Show the map as long as the user does not close the window
 while not done:
-	#(lon, lat) = readgps() #Get GPS Coordinates
+	#lon, lat = readgps() #Get GPS Coordinates
 	lon, lat = 7928.029, 4346.944
+	print lon, lat
 
 	x = processAdress(lon,lat)['lon'] #Get correponding image coordinates
 	y = processAdress(lon,lat)['lat']
@@ -166,8 +171,6 @@ while not done:
 	    if event.type == pygame.QUIT: # If user clicked close
 		done=True # Flag that we are done so we exit this loop
 
-	#pygame.draw.circle(screen, RED, [int(x), int(y)], 10)
-
 	newArrow = rot_center(arrow, arrowangle)
 	screen.blit(map_img,(0,0)) #Draw map
 
@@ -179,6 +182,7 @@ while not done:
 
 	#GPS Location drawing
 	screen.blit(newArrow,(int(x-7),int(y-4))) #Draw GPS location
+	pygame.draw.circle(screen, GREEN, [int(x), int(y)], 10)
 	pygame.display.flip()
 
 pygame.quit()
