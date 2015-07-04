@@ -6,8 +6,8 @@ Made by: Rahul Goel - rahul.g.eng@gmail.com
 
 Install the necessary modules in the following order (if running into problems, uninstall and reinstall in this order for correct build):
 
-sudo apt-get install tk tk-dev python-pygame
-pip install matplotlib
+sudo apt-get install python-dev python-tk tk tk-dev python-pygame
+sudo pip install matplotlib
 
 '''
 
@@ -19,6 +19,14 @@ from subprocess import check_output
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
+
+from math import pi
+from gps_func import *
+
+# INITIAL PARAMETERS
+#SCALE FOR MAP
+x_factor = 1
+y_factor = 1
 
 root = tk.Tk()
 
@@ -33,7 +41,10 @@ data_voltage = [0.0]
 data_state = []
 data_acc_x = [0.0]
 data_acc_y = [0.0]
-data_acc_z = [0.0]  
+data_acc_z = [0.0] 
+
+#Initialize GPS connection to computer
+#ser_gps = Serial("/dev/ttyUSB0", 9600, timeout = 0.01, writeTimeout = 0.01) 
 
 def key(event):
     root.status.set(repr(event.char)) 
@@ -89,13 +100,14 @@ class MenuBar(tk.Menu):
         print port_name
 
         try:
-            ser = Serial("/dev/ttyUSB5", baud_rate, timeout = 0, writeTimeout = 0)
+            ser = Serial("/dev/ttyUSB0", baud_rate, timeout = 0, writeTimeout = 0)
             # ser.flush()
             root.status.set("Connected to %s" % port_name)
             ser_connected = True
-
+ 
         except Exception as e:
             root.status.set("Error: Connection could not be established. %s" % e)
+            
 
     def command_fire(self, command = None):
         global ser, ser_connected
@@ -240,7 +252,7 @@ def plot_acc():
 
 def draw_circle():
 	pygame.draw.circle(screen, (0,0,0), (250,250), 125)
-pygame.display.update()    
+	pygame.display.update()    
 
 def ser_test_write():
     global ser, ser_connected
@@ -248,7 +260,6 @@ def ser_test_write():
     if ser_connected:
         data = ser.readline()
         data_list = data.split(",")
-
         if len(data_list) == 10:
             data_altitude.append(int(data_list[2]) - 540)
             data_temp_outside.append(float(data_list[3]))
@@ -264,14 +275,16 @@ def ser_test_write():
     root.after(500, ser_test_write)
 
 def ser_test():
-	global ser, ser_connected
-
+	global ser, ser_connected, data_list
 	if ser_connected:
 		data = ser.readline()
 		data_list = data.split(",")
+		#print ser
 
-		print data_list
-
+		if(data_list[0] == "GPS"):
+			print "Found GPS"
+			gps_capture()
+			
 		if len(data_list) == 13:
 			listbox.insert(0, data)
 
@@ -331,12 +344,143 @@ nb.add(page_two, text='GPS Map')
 nb.pack(expand=1, fill="both")
 
 # Setting up pygame
+###########################################################
+# Initialize the game engine
+pygame.init()
+# Define the colors we will use in RGB format
+BLACK = ( 0, 0, 0)
+WHITE = (255, 255, 255)
+BLUE = ( 0, 0, 255)
+GREEN = ( 0, 255, 0)
+RED = (255, 0, 0)
+ORANGE = (230,255,0)
+YELLOW = (125,255,0)
+PURPLE = (0,255,255)
 
-screen = pygame.display.set_mode((500,500))
-screen.fill(pygame.Color(255,255,255))
-pygame.display.init()
-pygame.display.update()
+# Set the height and width of the screen
+size = [int(1000*x_factor), int(600*y_factor)]
+screen = pygame.display.set_mode(size)
 
+clock = pygame.time.Clock()
+
+pygame.display.set_caption("GPS")
+myfont = pygame.font.SysFont("monospace", 15)
+
+#Picture of Map
+map_img = pygame.image.load('UTIAS.PNG')
+
+#Scale map to fit screen
+w,h = map_img.get_size()
+x_scale = 0.9
+y_scale = 0.9
+map_img = pygame.transform.scale(map_img, (int(w*x_scale*x_factor),int(h*y_scale*y_factor)))
+
+#Arrow represents the GPS location
+arrow = pygame.image.load('arrow.png')
+arrow = pygame.transform.scale(arrow, (15,15))
+
+done = False
+
+# INITIAL PARAMETERS
+#SCALE FOR MAP
+x_factor = 0.8
+y_factor = 0.4
+
+#Reference NMEA GPS Coordinates (test location)
+ref_NMEAlon1 = 7927.967
+ref_NMEAlat1 = 4346.929
+
+ref_NMEAlon2 = 7928.027
+ref_NMEAlat2 = 4346.924
+
+ref_NMEAlon3 = 7928.084
+ref_NMEAlat3 = 4346.983
+
+ref_NMEAlon4 = 7928.015
+ref_NMEAlat4 = 4346.977
+
+#Reference Image Coordinates (test location)
+ref_x1 = int(890*x_factor)
+ref_y1 = int(489*y_factor)
+
+ref_x2 = int(494*x_factor)
+ref_y2 = int(535*y_factor)
+
+ref_x3 = int(128*x_factor)
+ref_y3 = int(12*y_factor)
+
+ref_x4 = int(574*x_factor)
+ref_y4 = int(70*y_factor)
+
+#Reference decimal GPS Coordinates
+ref_declon1, ref_declat1 = decimal_gps(ref_NMEAlon1,ref_NMEAlat1)
+ref_declon2, ref_declat2 = decimal_gps(ref_NMEAlon2,ref_NMEAlat2)
+ref_declon3, ref_declat3 = decimal_gps(ref_NMEAlon3,ref_NMEAlat3)
+ref_declon4, ref_declat4 = decimal_gps(ref_NMEAlon4,ref_NMEAlat4)
+
+sen1_x = (ref_x2-ref_x1)/(ref_declon2-ref_declon1)
+sen1_y = (ref_y2-ref_y1)/(ref_declat2-ref_declat1)
+
+sen2_x = (ref_x3-ref_x1)/(ref_declon3-ref_declon1)
+sen2_y = (ref_y3-ref_y1)/(ref_declat3-ref_declat1)
+
+sen3_x = (ref_x4-ref_x1)/(ref_declon4-ref_declon1)
+sen3_y = (ref_y4-ref_y1)/(ref_declat4-ref_declat1)
+
+sen4_x = (ref_x3-ref_x2)/(ref_declon3-ref_declon2)
+sen4_y = (ref_y3-ref_y2)/(ref_declat3-ref_declat2)
+
+sen5_x = (ref_x4-ref_x2)/(ref_declon4-ref_declon2)
+sen5_y = (ref_y4-ref_y2)/(ref_declat4-ref_declat2)
+
+sen6_x = (ref_x4-ref_x3)/(ref_declon4-ref_declon3)
+sen6_y = (ref_y4-ref_y3)/(ref_declat4-ref_declat3)
+
+#Show the map as long as the user does not close the window
+def gps_capture():
+	flag = True
+	#lon, lat = float(data_list[5]), float(data_list[3])
+	print data_list[3], data_list[5]
+	#print(lon,lat)
+	#print data_list
+	"""
+	try:
+		lon, lat = float(data_list[5]), float(data_list[3])
+		flag = False
+		#print "Error done"
+	except:
+		print "Longitude and Latitude not floats"
+	"""
+	lon, lat = 7928.029, 4346.944
+	#print lon, lat
+
+	x = processAdress(lon,lat)['lon'] #Get correponding image coordinates
+	y = processAdress(lon,lat)['lat']
+
+	arrowangle = 0
+	    
+	clock.tick(10)
+
+	for event in pygame.event.get(): # User did something
+	    if event.type == pygame.QUIT: # If user clicked close
+		done=True # Flag that we are done so we exit this loop
+
+	newArrow = rot_center(arrow, arrowangle)
+	screen.blit(map_img,(0,0)) #Draw map
+
+	#Reference location drawings
+	pygame.draw.circle(screen, RED, [ref_x1, ref_y1], 10)
+	pygame.draw.circle(screen, WHITE, [ref_x2, ref_y2], 10)
+	pygame.draw.circle(screen, BLUE, [ref_x3, ref_y3], 10)
+	pygame.draw.circle(screen, BLACK, [ref_x4, ref_y4], 10)
+
+	#GPS Location drawing
+	screen.blit(newArrow,(int(x-7),int(y-4))) #Draw GPS location
+	pygame.draw.circle(screen, GREEN, [int(x), int(y)], 10)
+	pygame.display.flip()
+	#pygame.quit()
+	
+###########################################################
 # Setting up charts
 
 chart_width = (frame.winfo_width() - 40) / 4
@@ -382,9 +526,12 @@ root.after(0, plot_altitude)
 root.after(0, plot_temperature)
 root.after(0, plot_voltage)
 root.after(0, plot_acc)
-root.after(0, draw_circle)
+#root.after(0, draw_circle)
 
 root.after(1000, ser_test)
 root.after(1000, conclude)
 
 root.mainloop()
+
+
+
